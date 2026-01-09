@@ -5,13 +5,15 @@
  * Compile with: g++ -std=c++11 example_windows.cpp communicationWithFurner.cpp -o furnace_reader.exe
  */
 
-#include "communicationWithFurner.hpp"
+#include "../furnaceReader/communicationWithFurner.hpp"
 #include <windows.h>
 #include <iostream>
 #include <string>
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 
 // Helper function to normalize COM port name
 // Windows requires "\\.\COMx" format for ports above COM9
@@ -72,6 +74,40 @@ std::string getWindowsErrorMessage(DWORD errorCode) {
     return message;
 }
 
+// Helper function to create a hex dump of binary data
+std::string hexDump(const uint8_t* data, size_t length, size_t bytesPerLine = 16) {
+    std::ostringstream oss;
+    oss << std::hex << std::uppercase << std::setfill('0');
+    
+    for (size_t i = 0; i < length; i += bytesPerLine) {
+        // Offset
+        oss << std::setw(4) << i << ": ";
+        
+        // Hex bytes
+        for (size_t j = 0; j < bytesPerLine; j++) {
+            if (i + j < length) {
+                oss << std::setw(2) << static_cast<int>(data[i + j]) << " ";
+            } else {
+                oss << "   ";
+            }
+        }
+        
+        // ASCII representation
+        oss << " |";
+        for (size_t j = 0; j < bytesPerLine && (i + j) < length; j++) {
+            uint8_t byte = data[i + j];
+            if (byte >= 32 && byte < 127) {
+                oss << static_cast<char>(byte);
+            } else {
+                oss << ".";
+            }
+        }
+        oss << "|" << std::endl;
+    }
+    
+    return oss.str();
+}
+
 class WindowsSerialPort : public ISerialPort {
 public:
     WindowsSerialPort(const char* portName, DWORD baudRate = 115200) 
@@ -120,14 +156,14 @@ public:
         dcb.fParity = FALSE;
         dcb.fOutxCtsFlow = FALSE;
         dcb.fOutxDsrFlow = FALSE;
-        dcb.fDtrControl = DTR_CONTROL_DISABLE;
+        dcb.fDtrControl = DTR_CONTROL_ENABLE;  // Enable DTR (matches .NET SerialPort default)
         dcb.fDsrSensitivity = FALSE;
         dcb.fTXContinueOnXoff = FALSE;
         dcb.fOutX = FALSE;
         dcb.fInX = FALSE;
         dcb.fErrorChar = FALSE;
         dcb.fNull = FALSE;
-        dcb.fRtsControl = RTS_CONTROL_DISABLE;
+        dcb.fRtsControl = RTS_CONTROL_ENABLE;  // Enable RTS (matches .NET SerialPort default)
         dcb.fAbortOnError = FALSE;
 
         if (!SetCommState(_handle, &dcb)) {
@@ -137,12 +173,13 @@ public:
             return false;
         }
 
-        // Set timeouts
+        // Set timeouts - use more lenient settings for RS485 communication
+        // MAXDWORD (0xFFFFFFFF) for ReadIntervalTimeout means wait indefinitely between characters
         COMMTIMEOUTS timeouts;
         std::memset(&timeouts, 0, sizeof(COMMTIMEOUTS));
-        timeouts.ReadIntervalTimeout = 50;
-        timeouts.ReadTotalTimeoutConstant = 50;
-        timeouts.ReadTotalTimeoutMultiplier = 10;
+        timeouts.ReadIntervalTimeout = 0xFFFFFFFF;  // MAXDWORD - wait indefinitely between characters
+        timeouts.ReadTotalTimeoutConstant = 1000; // 1 second total timeout (matches PowerShell)
+        timeouts.ReadTotalTimeoutMultiplier = 0;  // No per-byte timeout
         timeouts.WriteTotalTimeoutConstant = 50;
         timeouts.WriteTotalTimeoutMultiplier = 10;
         
@@ -151,6 +188,15 @@ public:
             CloseHandle(_handle);
             _handle = INVALID_HANDLE_VALUE;
             return false;
+        }
+        
+        // Enable DTR and RTS - some RS485 adapters require these to be enabled
+        // This matches the default behavior of .NET SerialPort
+        if (!EscapeCommFunction(_handle, SETDTR)) {
+            // Non-fatal, but log if needed
+        }
+        if (!EscapeCommFunction(_handle, SETRTS)) {
+            // Non-fatal, but log if needed
         }
 
         return true;
@@ -299,13 +345,18 @@ int main(int argc, char* argv[]) {
     furnace.begin();
 
     std::cout << "Reading furnace data... Press Ctrl+C to exit" << std::endl;
+    std::cout << "Waiting for packets (header: 0x68 0x69 0x01)..." << std::endl;
+
+    int packetCount = 0;
+    int invalidPacketCount = 0;
 
     while (true) {
         if (furnace.update()) {
             if (furnace.isDataValid()) {
-                std::cout << "=== Furnace Data ===" << std::endl;
-                std::cout << "Boiler Temp: " << furnace.getTemperatureBoiler() << " °C" << std::endl;
-                std::cout << "Feeder Temp: " << furnace.getTemperatureFeeder() << " °C" << std::endl;
+                packetCount++;
+                std::cout << "=== Furnace Data (Packet #" << packetCount << ") ===" << std::endl;
+                std::cout << "Return Temp: " << furnace.getTemperatureBoiler() << " °C" << std::endl;
+                std::cout << "Mixer Temp: " << furnace.getTemperatureFeeder() << " °C" << std::endl;
                 std::cout << "Return Temp: " << furnace.getTemperatureReturn() << " °C" << std::endl;
                 std::cout << "Flame: " << furnace.getFlamePercentage() << " %" << std::endl;
                 std::cout << "Fuel Consumption: " << furnace.getFuelConsumption() << " kg/h" << std::endl;
@@ -319,14 +370,18 @@ int main(int argc, char* argv[]) {
                 std::cout << "Ignitions: " << furnace.getIgnitions() << std::endl;
                 std::cout << "Motor Lock: " << furnace.getMotorLock() << std::endl;
                 std::cout << std::endl;
-            }else{
-                std::cout << "Data is not valid" << std::endl;
+                std::cout << "Raw packet data (hex dump):" << std::endl;
+                std::cout << hexDump(furnace.getPacketBuffer(), furnace.getPacketSize()) << std::endl;
+            } else {
+                invalidPacketCount++;
+                std::cout << "Warning: Received packet but data validation failed (count: " 
+                          << invalidPacketCount << ")" << std::endl;
+                std::cout << "Raw packet data (hex dump):" << std::endl;
+                std::cout << hexDump(furnace.getPacketBuffer(), furnace.getPacketSize()) << std::endl;
             }
-        }else{
-            std::cout << "No data received" << std::endl;
         }
         
-        Sleep(1000); // Small delay to prevent CPU spinning
+        Sleep(10); // Small delay to prevent CPU spinning
     }
 
     return 0;

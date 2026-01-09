@@ -56,12 +56,12 @@ endif()
 
 # Source files
 set(SOURCES
-    communicationWithFurner.cpp
+    furnaceReader/communicationWithFurner.cpp
 )
 
 # Headers
 set(HEADERS
-    communicationWithFurner.hpp
+    furnaceReader/communicationWithFurner.hpp
 )
 
 # Windows-specific example

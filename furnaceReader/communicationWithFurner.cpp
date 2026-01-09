@@ -252,3 +252,11 @@ uint16_t CommunicationWithFurner::getMotorLock() const {
 bool CommunicationWithFurner::isDataValid() const {
     return _data.dataValid;
 }
+
+const uint8_t* CommunicationWithFurner::getPacketBuffer() const {
+    return _packetBuffer;
+}
+
+size_t CommunicationWithFurner::getPacketSize() const {
+    return PACKET_SIZE;
+}

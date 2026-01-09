@@ -188,9 +188,21 @@ public:
      */
     bool isDataValid() const;
 
+    /**
+     * @brief Get the raw packet buffer (for debugging)
+     * @return Pointer to the packet buffer (361 bytes)
+     */
+    const uint8_t* getPacketBuffer() const;
+
+    /**
+     * @brief Get the packet size
+     * @return Packet size in bytes (361)
+     */
+    size_t getPacketSize() const;
+
 private:
     static constexpr uint8_t PACKET_HEADER_1 = 0x68;
-    static constexpr uint8_t PACKET_HEADER_2 = 0x69;
+    static constexpr uint8_t PACKET_HEADER_2 = 0x0D;
     static constexpr uint8_t PACKET_HEADER_3 = 0x01;
     static constexpr size_t PACKET_SIZE = 361;
 
