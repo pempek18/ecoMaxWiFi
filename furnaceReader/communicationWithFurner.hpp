@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <limits>
 
 /**
  * @brief Abstract serial port interface for platform-independent communication
@@ -241,6 +242,13 @@ private:
      * @return uint8 value
      */
     uint8_t extractUint8(size_t offset) const;
+
+    /**
+     * @brief Check if a float value is valid (not NaN or infinity)
+     * @param value Float value to check
+     * @return true if value is valid
+     */
+    bool isValidFloat(float value) const;
 
     /**
      * @brief Parse the received packet and update data structure

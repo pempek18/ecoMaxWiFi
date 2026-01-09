@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
+#include <cmath>
+#include <vector>
 
 // Helper function to normalize COM port name
 // Windows requires "\\.\COMx" format for ports above COM9
@@ -355,20 +357,121 @@ int main(int argc, char* argv[]) {
             if (furnace.isDataValid()) {
                 packetCount++;
                 std::cout << "=== Furnace Data (Packet #" << packetCount << ") ===" << std::endl;
-                std::cout << "Return Temp: " << furnace.getTemperatureBoiler() << " °C" << std::endl;
-                std::cout << "Mixer Temp: " << furnace.getTemperatureFeeder() << " °C" << std::endl;
-                std::cout << "Return Temp: " << furnace.getTemperatureReturn() << " °C" << std::endl;
-                std::cout << "Flame: " << furnace.getFlamePercentage() << " %" << std::endl;
-                std::cout << "Fuel Consumption: " << furnace.getFuelConsumption() << " kg/h" << std::endl;
+                
+                // Helper lambda to format float values with validation
+                auto formatFloat = [](float value, const char* unit = "") -> std::string {
+                    if (std::isnan(value) || std::isinf(value)) {
+                        return std::string("N/A (invalid)");
+                    }
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(2) << value;
+                    if (unit[0] != '\0') {
+                        oss << " " << unit;
+                    }
+                    return oss.str();
+                };
+                
+                std::cout << "Boiler Temp (Output): " << formatFloat(furnace.getTemperatureBoiler(), "°C") << std::endl;
+                std::cout << "Feeder Temp: " << formatFloat(furnace.getTemperatureFeeder(), "°C") << std::endl;
+                std::cout << "Return Temp: " << formatFloat(furnace.getTemperatureReturn(), "°C") << std::endl;
+                std::cout << "Flame: " << formatFloat(furnace.getFlamePercentage(), "%") << std::endl;
+                std::cout << "Fuel Consumption: " << formatFloat(furnace.getFuelConsumption(), "kg/h") << std::endl;
                 std::cout << "Fan Speed: " << static_cast<int>(furnace.getFanSpeed()) << std::endl;
-                std::cout << "Power: " << furnace.getPower() << std::endl;
+                std::cout << "Power: " << formatFloat(furnace.getPower(), "%") << std::endl;
                 std::cout << "Work Time 100%: " << furnace.getWorkTime100() << " h" << std::endl;
                 std::cout << "Work Time 50%: " << furnace.getWorkTime50() << " h" << std::endl;
                 std::cout << "Work Time 33%: " << furnace.getWorkTime33() << " h" << std::endl;
                 std::cout << "Feeder Work Time: " << furnace.getFeederWorkTime() << " h" << std::endl;
-                std::cout << "Burned Fuel: " << furnace.getBurnedFuel() << " kg" << std::endl;
+                std::cout << "Burned Fuel: " << formatFloat(furnace.getBurnedFuel(), "kg") << std::endl;
                 std::cout << "Ignitions: " << furnace.getIgnitions() << std::endl;
                 std::cout << "Motor Lock: " << furnace.getMotorLock() << std::endl;
+                
+                // Decode additional fields from hex dump for analysis
+                const uint8_t* buffer = furnace.getPacketBuffer();
+                std::cout << std::endl << "--- Additional Decoded Fields ---" << std::endl;
+                
+                // Try common temperature sensor offsets
+                std::vector<int> tempOffsets = {94, 98, 102, 106, 110, 114, 67, 71, 75, 83, 87, 99, 103};
+                for (int offset : tempOffsets) {
+                    if (offset + 3 < furnace.getPacketSize()) {
+                        // Check if bytes look like a valid float (not all 0xFF or 0x00)
+                        bool looksValid = false;
+                        for (int i = 0; i < 4; i++) {
+                            if (buffer[offset + i] != 0xFF && buffer[offset + i] != 0x00) {
+                                looksValid = true;
+                                break;
+                            }
+                        }
+                        
+                        if (looksValid) {
+                            union { uint32_t i; float f; } temp;
+                            temp.i = (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) | 
+                                     ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
+                            if (!std::isnan(temp.f) && !std::isinf(temp.f) && 
+                                temp.f > -100.0f && temp.f < 500.0f) { // Reasonable temp range
+                                std::cout << "Temp @" << offset << "-" << (offset+3) << ": " 
+                                          << formatFloat(temp.f, "°C") << std::endl;
+                            }
+                        }
+                    }
+                }
+                
+                // Operating status (byte 53 in ecomax860p, but might be different offset)
+                for (int offset : {53, 54, 55, 56, 57}) {
+                    if (offset < furnace.getPacketSize()) {
+                        uint8_t status = buffer[offset];
+                        if (status != 0 && status != 0xFF) {
+                            std::cout << "Status byte @" << offset << ": 0x" << std::hex 
+                                      << static_cast<int>(status) << std::dec;
+                            // Common status values
+                            if (status == 0) std::cout << " (OFF)";
+                            else if (status == 1) std::cout << " (IGNITION)";
+                            else if (status == 2) std::cout << " (STABILIZATION)";
+                            else if (status == 3) std::cout << " (RUNNING)";
+                            else if (status == 5) std::cout << " (EXTINGUISHING)";
+                            else if (status == 7) std::cout << " (EXTINGUISHING_ON_DEMAND)";
+                            std::cout << std::endl;
+                        }
+                    }
+                }
+                
+                // Fuel level (byte 168 in ecomax860p)
+                for (int offset : {168, 169, 170}) {
+                    if (offset < furnace.getPacketSize()) {
+                        uint8_t fuelLevel = buffer[offset];
+                        if (fuelLevel != 0xFF && fuelLevel <= 100) {
+                            std::cout << "Fuel Level @" << offset << ": " 
+                                      << static_cast<int>(fuelLevel) << "%" << std::endl;
+                        }
+                    }
+                }
+                
+                // Boiler power as byte (offset 196 in ecomax860p)
+                for (int offset : {196, 197, 198, 199}) {
+                    if (offset < furnace.getPacketSize()) {
+                        uint8_t power = buffer[offset];
+                        if (power != 0xFF && power <= 100) {
+                            std::cout << "Power (byte) @" << offset << ": " 
+                                      << static_cast<int>(power) << "%" << std::endl;
+                        }
+                    }
+                }
+                
+                // Lambda/Oxygen levels (offsets 226-233 in ecomax860p)
+                for (int offset : {226, 230}) {
+                    if (offset + 3 < furnace.getPacketSize()) {
+                        union { uint32_t i; float f; } value;
+                        value.i = (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) | 
+                                  ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
+                        if (!std::isnan(value.f) && !std::isinf(value.f) && 
+                            value.f >= 0.0f && value.f < 100.0f) {
+                            std::string label = (offset == 226) ? "Lambda" : "Oxygen";
+                            std::cout << label << " @" << offset << "-" << (offset+3) << ": " 
+                                      << formatFloat(value.f, "%") << std::endl;
+                        }
+                    }
+                }
+                
                 std::cout << std::endl;
                 std::cout << "Raw packet data (hex dump):" << std::endl;
                 std::cout << hexDump(furnace.getPacketBuffer(), furnace.getPacketSize()) << std::endl;

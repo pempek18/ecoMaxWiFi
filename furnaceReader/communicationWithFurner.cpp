@@ -1,5 +1,6 @@
 #include "communicationWithFurner.hpp"
 #include <cstring>
+#include <cmath>
 
 CommunicationWithFurner::CommunicationWithFurner(ISerialPort* serialPort)
     : _serial(serialPort)
@@ -114,7 +115,17 @@ void CommunicationWithFurner::parsePacket() {
     _data.temperatureFeeder = extractFloat(90);
 
     // Temperature return: bytes 106-109 (float, little-endian)
+    // Note: Some models may use different offsets. If this returns NaN, try offsets 94, 98, 102, 110, etc.
     _data.temperatureReturn = extractFloat(106);
+    
+    // If return temp is invalid, try alternative offsets (common in different models)
+    if (std::isnan(_data.temperatureReturn) || std::isinf(_data.temperatureReturn)) {
+        // Try offset 94 (sometimes used for return temp in some models)
+        float altTemp = extractFloat(94);
+        if (!std::isnan(altTemp) && !std::isinf(altTemp) && altTemp > -50.0f && altTemp < 200.0f) {
+            _data.temperatureReturn = altTemp;
+        }
+    }
 
     // Flame percentage: bytes 118-121 (float, little-endian)
     _data.flamePercentage = extractFloat(118);
@@ -154,7 +165,7 @@ void CommunicationWithFurner::parsePacket() {
 
 float CommunicationWithFurner::extractFloat(size_t offset) const {
     if (offset + 3 >= PACKET_SIZE) {
-        return 0.0f;
+        return std::numeric_limits<float>::quiet_NaN();
     }
 
     // Extract 4 bytes as little-endian float
@@ -168,7 +179,12 @@ float CommunicationWithFurner::extractFloat(size_t offset) const {
                   ((uint32_t)_packetBuffer[offset + 2] << 16) |
                   ((uint32_t)_packetBuffer[offset + 3] << 24);
 
+    // Return the value as-is (including NaN/infinity) - let the caller decide how to handle it
     return converter.f;
+}
+
+bool CommunicationWithFurner::isValidFloat(float value) const {
+    return !std::isnan(value) && !std::isinf(value);
 }
 
 uint16_t CommunicationWithFurner::extractUint16(size_t offset) const {
