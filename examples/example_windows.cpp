@@ -376,10 +376,27 @@ int main(int argc, char* argv[]) {
                 std::cout << "Feeder Temp: " << formatFloat(furnace.getTemperatureFeeder(), "°C") << std::endl;
                 std::cout << "Boiler Temp (Output): " << formatFloat(furnace.getTemperatureBoiler(), "°C") << std::endl;
                 std::cout << "Exhaust Temp: " << formatFloat(furnace.getTemperatureExhaust(), "°C") << std::endl;
+                std::cout << "CO Temp: " << formatFloat(furnace.getTemperatureCO(), "°C") << std::endl;
+                std::cout << "CWU Temp: " << formatFloat(furnace.getTemperatureCWU(), "°C") << std::endl;
+                std::cout << "Weather Temp: " << formatFloat(furnace.getTemperatureWeather(), "°C") << std::endl;
                 std::cout << "Flame: " << formatFloat(furnace.getFlamePercentage(), "%") << std::endl;
                 std::cout << "Fuel Consumption: " << formatFloat(furnace.getFuelConsumption(), "kg/h") << std::endl;
                 std::cout << "Fan Speed: " << static_cast<int>(furnace.getFanSpeed()) << std::endl;
-                std::cout << "Power: " << formatFloat(furnace.getPower(), "%") << std::endl;
+                std::cout << "Power (float): " << formatFloat(furnace.getPower(), "%") << std::endl;
+                std::cout << "Power (byte): " << static_cast<int>(furnace.getPowerByte()) << "%" << std::endl;
+                
+                // Operating status with description
+                uint8_t status = furnace.getOperatingStatus();
+                std::cout << "Operating Status: " << static_cast<int>(status);
+                if (status == 0) std::cout << " (OFF)";
+                else if (status == 1) std::cout << " (IGNITION)";
+                else if (status == 2) std::cout << " (STABILIZATION)";
+                else if (status == 3) std::cout << " (RUNNING)";
+                else if (status == 5) std::cout << " (EXTINGUISHING)";
+                else if (status == 7) std::cout << " (EXTINGUISHING_ON_DEMAND)";
+                std::cout << std::endl;
+                
+                std::cout << "Fuel Level: " << static_cast<int>(furnace.getFuelLevel()) << "%" << std::endl;
                 std::cout << "Work Time 100%: " << furnace.getWorkTime100() << " h" << std::endl;
                 std::cout << "Work Time 50%: " << furnace.getWorkTime50() << " h" << std::endl;
                 std::cout << "Work Time 33%: " << furnace.getWorkTime33() << " h" << std::endl;

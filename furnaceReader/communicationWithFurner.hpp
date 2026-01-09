@@ -57,14 +57,20 @@ public:
      */
     struct FurnaceData {
         float temperatureReturn;      // Temperature return (powrót) (°C)
-        float temperatureMixer;      // Temperature feeder (°C)
+        float temperatureMixer;      // Temperature mixer (°C)
         float temperatureFeeder;      // Temperature feeder (°C)
         float temperatureBoiler;      // Temperature output from boiler (°C)
         float temperatureExhaust;     // Temperature exhaust/spalin (°C)
+        float temperatureCO;          // Temperature CO (°C)
+        float temperatureCWU;         // Temperature CWU (°C)
+        float temperatureWeather;     // Temperature weather/pogodowa (°C)
         float flamePercentage;        // Flame percentage (%)
         float fuelConsumption;        // Fuel consumption (kg/h)
         uint8_t fanSpeed;             // Fan speed
-        float power;                   // Boiler power
+        float power;                   // Boiler power (float)
+        uint8_t powerByte;            // Boiler power (byte, %)
+        uint8_t operatingStatus;      // Operating status (0=OFF, 1=IGNITION, 2=STABILIZATION, 3=RUNNING, 5=EXTINGUISHING, 7=EXTINGUISHING_ON_DEMAND)
+        uint8_t fuelLevel;            // Fuel level (%)
         uint16_t workTime100;         // Work time at 100% (hours)
         uint16_t workTime50;          // Work time at 50% (hours)
         uint16_t workTime33;          // Work time at 33% (hours)
@@ -132,6 +138,24 @@ public:
     float getTemperatureExhaust() const;
 
     /**
+     * @brief Get temperature CO
+     * @return Temperature in °C
+     */
+    float getTemperatureCO() const;
+
+    /**
+     * @brief Get temperature CWU
+     * @return Temperature in °C
+     */
+    float getTemperatureCWU() const;
+
+    /**
+     * @brief Get temperature weather (pogodowa)
+     * @return Temperature in °C
+     */
+    float getTemperatureWeather() const;
+
+    /**
      * @brief Get flame percentage
      * @return Flame percentage (0-100%)
      */
@@ -150,10 +174,28 @@ public:
     uint8_t getFanSpeed() const;
 
     /**
-     * @brief Get boiler power
+     * @brief Get boiler power (float)
      * @return Power value
      */
     float getPower() const;
+
+    /**
+     * @brief Get boiler power (byte, %)
+     * @return Power percentage (0-100%)
+     */
+    uint8_t getPowerByte() const;
+
+    /**
+     * @brief Get operating status
+     * @return Operating status (0=OFF, 1=IGNITION, 2=STABILIZATION, 3=RUNNING, 5=EXTINGUISHING, 7=EXTINGUISHING_ON_DEMAND)
+     */
+    uint8_t getOperatingStatus() const;
+
+    /**
+     * @brief Get fuel level
+     * @return Fuel level percentage (0-100%)
+     */
+    uint8_t getFuelLevel() const;
 
     /**
      * @brief Get work time at 100%

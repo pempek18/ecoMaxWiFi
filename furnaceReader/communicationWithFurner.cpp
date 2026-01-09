@@ -114,11 +114,28 @@ void CommunicationWithFurner::parsePacket() {
     // Temperature mixer: bytes 90-93 (float, little-endian)
     _data.temperatureMixer = extractFloat(90);
 
-    // Temperature boiler: bytes 106-109 (float, little-endian)
+    // Temperature feeder: bytes 106-109 (float, little-endian)
     _data.temperatureFeeder = extractFloat(106);
+    
+    // If feeder temp is invalid, try alternative offset 71 (from ecomax860p.py)
+    if (std::isnan(_data.temperatureFeeder) || std::isinf(_data.temperatureFeeder)) {
+        float altTemp = extractFloat(71);
+        if (!std::isnan(altTemp) && !std::isinf(altTemp) && altTemp > -50.0f && altTemp < 200.0f) {
+            _data.temperatureFeeder = altTemp;
+        }
+    }
 
     // Temperature exhaust (spalin): bytes 110-113 (float, little-endian)
     _data.temperatureExhaust = extractFloat(110);
+
+    // Temperature CO: bytes 67-70 (float, little-endian) - from ecomax860p.py
+    _data.temperatureCO = extractFloat(67);
+
+    // Temperature CWU: bytes 75-78 (float, little-endian) - from ecomax860p.py
+    _data.temperatureCWU = extractFloat(75);
+
+    // Temperature weather (pogodowa): bytes 99-102 (float, little-endian) - from ecomax860p.py
+    _data.temperatureWeather = extractFloat(99);
 
     // Flame percentage: bytes 118-121 (float, little-endian)
     _data.flamePercentage = extractFloat(118);
@@ -131,6 +148,15 @@ void CommunicationWithFurner::parsePacket() {
 
     // Power: bytes 250-253 (float, little-endian)
     _data.power = extractFloat(250);
+
+    // Power (byte): byte 196 (uint8) - from ecomax860p.py, more reliable than float
+    _data.powerByte = extractUint8(196);
+
+    // Operating status: byte 53 (uint8) - from ecomax860p.py
+    _data.operatingStatus = extractUint8(53);
+
+    // Fuel level: byte 168 (uint8) - from ecomax860p.py
+    _data.fuelLevel = extractUint8(168);
 
     // Work time 100%: bytes 294-295 (uint16, little-endian)
     _data.workTime100 = extractUint16(294);
@@ -223,6 +249,18 @@ float CommunicationWithFurner::getTemperatureExhaust() const {
     return _data.temperatureExhaust;
 }
 
+float CommunicationWithFurner::getTemperatureCO() const {
+    return _data.temperatureCO;
+}
+
+float CommunicationWithFurner::getTemperatureCWU() const {
+    return _data.temperatureCWU;
+}
+
+float CommunicationWithFurner::getTemperatureWeather() const {
+    return _data.temperatureWeather;
+}
+
 float CommunicationWithFurner::getFlamePercentage() const {
     return _data.flamePercentage;
 }
@@ -237,6 +275,18 @@ uint8_t CommunicationWithFurner::getFanSpeed() const {
 
 float CommunicationWithFurner::getPower() const {
     return _data.power;
+}
+
+uint8_t CommunicationWithFurner::getPowerByte() const {
+    return _data.powerByte;
+}
+
+uint8_t CommunicationWithFurner::getOperatingStatus() const {
+    return _data.operatingStatus;
+}
+
+uint8_t CommunicationWithFurner::getFuelLevel() const {
+    return _data.fuelLevel;
 }
 
 uint16_t CommunicationWithFurner::getWorkTime100() const {
