@@ -56,9 +56,11 @@ public:
      * @brief Structure to hold all furnace data
      */
     struct FurnaceData {
-        float temperatureBoiler;      // Temperature output from boiler (°C)
+        float temperatureReturn;      // Temperature return (powrót) (°C)
+        float temperatureMixer;      // Temperature feeder (°C)
         float temperatureFeeder;      // Temperature feeder (°C)
-        float temperatureReturn;      // Temperature return (°C)
+        float temperatureBoiler;      // Temperature output from boiler (°C)
+        float temperatureExhaust;     // Temperature exhaust/spalin (°C)
         float flamePercentage;        // Flame percentage (%)
         float fuelConsumption;        // Fuel consumption (kg/h)
         uint8_t fanSpeed;             // Fan speed
@@ -100,6 +102,18 @@ public:
     FurnaceData getData() const;
 
     /**
+     * @brief Get temperature return
+     * @return Temperature in °C
+     */
+    float getTemperatureReturn() const;
+
+    /**
+     * @brief Get temperature mixer
+     * @return Temperature in °C
+     */
+    float getTemperatureMixer() const;
+
+    /**
      * @brief Get temperature boiler (output)
      * @return Temperature in °C
      */
@@ -112,10 +126,10 @@ public:
     float getTemperatureFeeder() const;
 
     /**
-     * @brief Get temperature return
+     * @brief Get temperature exhaust (spalin)
      * @return Temperature in °C
      */
-    float getTemperatureReturn() const;
+    float getTemperatureExhaust() const;
 
     /**
      * @brief Get flame percentage

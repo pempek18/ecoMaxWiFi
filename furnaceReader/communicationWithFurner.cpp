@@ -108,24 +108,17 @@ void CommunicationWithFurner::parsePacket() {
     }
 
     // Extract data according to Python script offsets
-    // Temperature boiler (output): bytes 86-89 (float, little-endian)
-    _data.temperatureBoiler = extractFloat(86);
+    // Temperature return: bytes 86-89 (float, little-endian)
+    _data.temperatureReturn = extractFloat(86);
 
-    // Temperature feeder: bytes 90-93 (float, little-endian)
-    _data.temperatureFeeder = extractFloat(90);
+    // Temperature mixer: bytes 90-93 (float, little-endian)
+    _data.temperatureMixer = extractFloat(90);
 
-    // Temperature return: bytes 106-109 (float, little-endian)
-    // Note: Some models may use different offsets. If this returns NaN, try offsets 94, 98, 102, 110, etc.
-    _data.temperatureReturn = extractFloat(106);
-    
-    // If return temp is invalid, try alternative offsets (common in different models)
-    if (std::isnan(_data.temperatureReturn) || std::isinf(_data.temperatureReturn)) {
-        // Try offset 94 (sometimes used for return temp in some models)
-        float altTemp = extractFloat(94);
-        if (!std::isnan(altTemp) && !std::isinf(altTemp) && altTemp > -50.0f && altTemp < 200.0f) {
-            _data.temperatureReturn = altTemp;
-        }
-    }
+    // Temperature boiler: bytes 106-109 (float, little-endian)
+    _data.temperatureFeeder = extractFloat(106);
+
+    // Temperature exhaust (spalin): bytes 110-113 (float, little-endian)
+    _data.temperatureExhaust = extractFloat(110);
 
     // Flame percentage: bytes 118-121 (float, little-endian)
     _data.flamePercentage = extractFloat(118);
@@ -219,6 +212,15 @@ float CommunicationWithFurner::getTemperatureFeeder() const {
 
 float CommunicationWithFurner::getTemperatureReturn() const {
     return _data.temperatureReturn;
+}
+
+float CommunicationWithFurner::getTemperatureMixer() const
+{
+return _data.temperatureMixer;
+}
+
+float CommunicationWithFurner::getTemperatureExhaust() const {
+    return _data.temperatureExhaust;
 }
 
 float CommunicationWithFurner::getFlamePercentage() const {

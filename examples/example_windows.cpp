@@ -371,9 +371,11 @@ int main(int argc, char* argv[]) {
                     return oss.str();
                 };
                 
-                std::cout << "Boiler Temp (Output): " << formatFloat(furnace.getTemperatureBoiler(), "°C") << std::endl;
-                std::cout << "Feeder Temp: " << formatFloat(furnace.getTemperatureFeeder(), "°C") << std::endl;
                 std::cout << "Return Temp: " << formatFloat(furnace.getTemperatureReturn(), "°C") << std::endl;
+                std::cout << "Mixer Temp: " << formatFloat(furnace.getTemperatureMixer(), "°C") << std::endl;
+                std::cout << "Feeder Temp: " << formatFloat(furnace.getTemperatureFeeder(), "°C") << std::endl;
+                std::cout << "Boiler Temp (Output): " << formatFloat(furnace.getTemperatureBoiler(), "°C") << std::endl;
+                std::cout << "Exhaust Temp: " << formatFloat(furnace.getTemperatureExhaust(), "°C") << std::endl;
                 std::cout << "Flame: " << formatFloat(furnace.getFlamePercentage(), "%") << std::endl;
                 std::cout << "Fuel Consumption: " << formatFloat(furnace.getFuelConsumption(), "kg/h") << std::endl;
                 std::cout << "Fan Speed: " << static_cast<int>(furnace.getFanSpeed()) << std::endl;
@@ -391,12 +393,12 @@ int main(int argc, char* argv[]) {
                 std::cout << std::endl << "--- Additional Decoded Fields ---" << std::endl;
                 
                 // Try common temperature sensor offsets
-                std::vector<int> tempOffsets = {94, 98, 102, 106, 110, 114, 67, 71, 75, 83, 87, 99, 103};
-                for (int offset : tempOffsets) {
+                std::vector<size_t> tempOffsets = {94, 98, 102, 106, 110, 114, 67, 71, 75, 83, 87, 99, 103};
+                for (size_t offset : tempOffsets) {
                     if (offset + 3 < furnace.getPacketSize()) {
                         // Check if bytes look like a valid float (not all 0xFF or 0x00)
                         bool looksValid = false;
-                        for (int i = 0; i < 4; i++) {
+                        for (size_t i = 0; i < 4; i++) {
                             if (buffer[offset + i] != 0xFF && buffer[offset + i] != 0x00) {
                                 looksValid = true;
                                 break;
@@ -417,7 +419,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // Operating status (byte 53 in ecomax860p, but might be different offset)
-                for (int offset : {53, 54, 55, 56, 57}) {
+                for (size_t offset : {53, 54, 55, 56, 57}) {
                     if (offset < furnace.getPacketSize()) {
                         uint8_t status = buffer[offset];
                         if (status != 0 && status != 0xFF) {
@@ -436,7 +438,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // Fuel level (byte 168 in ecomax860p)
-                for (int offset : {168, 169, 170}) {
+                for (size_t offset : {168, 169, 170}) {
                     if (offset < furnace.getPacketSize()) {
                         uint8_t fuelLevel = buffer[offset];
                         if (fuelLevel != 0xFF && fuelLevel <= 100) {
@@ -447,7 +449,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // Boiler power as byte (offset 196 in ecomax860p)
-                for (int offset : {196, 197, 198, 199}) {
+                for (size_t offset : {196, 197, 198, 199}) {
                     if (offset < furnace.getPacketSize()) {
                         uint8_t power = buffer[offset];
                         if (power != 0xFF && power <= 100) {
@@ -458,7 +460,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // Lambda/Oxygen levels (offsets 226-233 in ecomax860p)
-                for (int offset : {226, 230}) {
+                for (size_t offset : {226, 230}) {
                     if (offset + 3 < furnace.getPacketSize()) {
                         union { uint32_t i; float f; } value;
                         value.i = (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) | 
